@@ -16,7 +16,9 @@ import (
 
 func main() {
 	logger := utils.NewLogger()
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
