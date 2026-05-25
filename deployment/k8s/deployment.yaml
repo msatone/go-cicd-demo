@@ -2,58 +2,67 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-go-app
-  namespace: my-app-ns
+  namespace: "{{ .Values.namespace.name }}"
   labels:
     app: my-go-app
     managed-by: harness
+
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicaCount }}
+
   selector:
     matchLabels:
       app: my-go-app
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+
   template:
     metadata:
       labels:
         app: my-go-app
+
     spec:
       containers:
         - name: my-go-app
-          image: <+artifact.image>
-          imagePullPolicy: Always
+
+          image: "{{ .Values.image.repository }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+
           ports:
-            - containerPort: 8080
+            - containerPort: {{ .Values.container.port }}
+
           env:
             - name: PORT
-              value: "8080"
+              value: "{{ .Values.container.port }}"
+
             - name: APP_VERSION
-              value: <+artifact.tag>
+              value: "{{ .Values.image.tag }}"
+
             - name: GO111MODULE
               value: "on"
+
           resources:
-            requests:
-              memory: "64Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "500m"
+{{ toYaml .Values.resources | indent 12 }}
+
           livenessProbe:
             httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            failureThreshold: 3
+              path: "{{ .Values.probes.liveness.path }}"
+              port: {{ .Values.container.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+
           readinessProbe:
             httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            failureThreshold: 3
+              path: "{{ .Values.probes.readiness.path }}"
+              port: {{ .Values.container.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
