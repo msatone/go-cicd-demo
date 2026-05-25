@@ -1,0 +1,165 @@
+pipeline:
+  name: golang-ci-pipeline
+  identifier: golang_ci_pipeline
+  projectIdentifier: YOUR_PROJECT_ID
+  orgIdentifier: default
+  tags:
+    app: my-go-app
+    type: ci
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: harness_code_connector
+        repoName: my-go-app
+        build:
+          type: branch
+          spec:
+            branch: main
+
+  stages:
+    - stage:
+        name: Code_Validation
+        identifier: code_validation
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+
+              - step:
+                  type: Run
+                  name: Go Version Check
+                  identifier: go_version_check
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golang:1.21-alpine
+                    shell: Sh
+                    command: |
+                      go version
+                      echo "GO111MODULE=$GO111MODULE"
+
+              - step:
+                  type: Run
+                  name: Install Dependencies
+                  identifier: install_dependencies
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golang:1.21-alpine
+                    shell: Sh
+                    envVariables:
+                      GO111MODULE: "on"
+                      GOPROXY: "https://proxy.golang.org"
+                    command: |
+                      go mod tidy
+                      go mod download
+                      echo "Dependencies installed successfully"
+
+              - step:
+                  type: Run
+                  name: Run Formatting
+                  identifier: run_formatting
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golang:1.21-alpine
+                    shell: Sh
+                    command: |
+                      go fmt ./...
+                      echo "Formatting check done"
+
+              - step:
+                  type: Run
+                  name: Run Lint
+                  identifier: run_lint
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golangci/golangci-lint:latest
+                    shell: Sh
+                    command: |
+                      golangci-lint run --timeout=5m
+                      echo "Lint passed"
+
+              - step:
+                  type: Run
+                  name: Run Unit Tests
+                  identifier: run_unit_tests
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golang:1.21-alpine
+                    shell: Sh
+                    envVariables:
+                      GO111MODULE: "on"
+                    command: |
+                      go test ./... -v -coverprofile=coverage.out
+                      go tool cover -func=coverage.out
+                      echo "Tests passed"
+
+              - step:
+                  type: Run
+                  name: Build Binary
+                  identifier: build_binary
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: golang:1.21-alpine
+                    shell: Sh
+                    envVariables:
+                      CGO_ENABLED: "0"
+                      GOOS: "linux"
+                      GOARCH: "amd64"
+                    command: |
+                      mkdir -p bin
+                      go build -ldflags="-w -s" -o bin/my-go-app ./cmd/app
+                      echo "Binary built successfully"
+                      ls -lh bin/
+
+              - step:
+                  type: Run
+                  name: Security Scan
+                  identifier: security_scan
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: aquasec/trivy:latest
+                    shell: Sh
+                    command: |
+                      trivy fs . --exit-code 0 --severity HIGH,CRITICAL
+                      echo "Security scan complete"
+
+              - step:
+                  type: BuildAndPushECR
+                  name: Build And Push To ECR
+                  identifier: build_push_ecr
+                  spec:
+                    connectorRef: aws_ecr_connector
+                    region: us-east-1
+                    account: "494934331459"
+                    imageName: my-go-app
+                    tags:
+                      - <+pipeline.sequenceId>
+                      - latest
+                    dockerfile: deployment/Dockerfile
+                    context: .
+                    optimize: true
+
+  triggers:
+    - trigger:
+        name: On Push Main
+        identifier: on_push_main
+        type: Webhook
+        spec:
+          type: HarnessCode
+          spec:
+            type: Push
+            spec:
+              connectorRef: harness_code_connector
+              autoAbortPreviousExecutions: true
+              payloadConditions:
+                - key: targetBranch
+                  operator: Equals
+                  value: main
+              repoName: my-go-app

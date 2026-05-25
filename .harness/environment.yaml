@@ -1,0 +1,26 @@
+environment:
+  name: production
+  identifier: production
+  orgIdentifier: default
+  projectIdentifier: YOUR_PROJECT_ID
+  type: Production
+  tags:
+    cluster: Dummy-EKS
+    region: us-east-1
+    managed-by: harness
+
+---
+
+infrastructureDefinition:
+  name: dummy-eks-infra
+  identifier: dummy_eks_infra
+  orgIdentifier: default
+  projectIdentifier: YOUR_PROJECT_ID
+  environmentRef: production
+  deploymentType: Kubernetes
+  type: KubernetesDirect
+  spec:
+    connectorRef: eks_connector
+    namespace: my-app-ns
+    releaseName: my-go-app
+  allowSimultaneousDeployments: false
