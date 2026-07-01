@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: my-go-app
+  namespace: my-app-ns
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: my-go-app
+
+  template:
+    metadata:
+      labels:
+        app: my-go-app
+
+    spec:
+      containers:
+      - name: my-go-app
+
+        image: 494934331459.dkr.ecr.us-east-1.amazonaws.com/dummy:latest
+
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8080
+
+        env:
+        - name: PORT
+          value: "8080"
+
+        - name: APP_VERSION
+          value: "1.0.0"
+
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+
+          initialDelaySeconds: 15
+          periodSeconds: 20
