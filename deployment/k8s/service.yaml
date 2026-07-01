@@ -3,20 +3,14 @@ kind: Service
 
 metadata:
   name: my-go-app-service
-  namespace: "{{ .Values.namespace.name }}"
-
-  labels:
-    app: my-go-app
-    managed-by: harness
+  namespace: my-app-ns
 
 spec:
-  type: "{{ .Values.service.type }}"
-
   selector:
     app: my-go-app
 
   ports:
-    - name: http
-      protocol: TCP
-      port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
+  - port: 80
+    targetPort: 8080
+
+  type: NodePort
